@@ -1,0 +1,76 @@
+ECS: automates handling ec2 instances 
+--> service schedulter: scheduling strategy is followed and reschedules tasks when task fails
+
+#filter types in envoy:
+1) listener filters: access raw data (L4 layer) | TLS inspector filter
+2) Network filters: TCP packages | TCP proxy filter 
+3) HTTP filters: HTTP data | HCM / HTTP connection management filter 
+HCM converts envoy into L7 proxy (converts bytes --> HTTP request)
+
+Router filter : sends req to selected cluster 
+
+# envoy --> scope key calculation
+
+protobuf: protocol buffer --> Googles language and platform neutral, serialize structured data 
+.proto file:
+
+message Person = {  --> message type 
+    string name = 1;
+    int id = 2;
+}
+
+protoc compiler takes .proto file --> source code in Go, C++, Python, Java --> classes / structs representing
+defined messages 
+enums and unions 
+
+@typed_config : proto buf of type any that is arbitrary serialized data
+
+what this does: stat_prefix: ingress_http 
+while collecting statistics like number of http connection requests etc we add a prefix ingress_http to it this
+like ingress_http.requests_total, helps to group and differentiate statistics --> helps with monitoring
+
+
+codec_type = AUTO  (AUTOMATICALLY detect http version rather than assuming one by default)
+
+route_config: static route table for connection manager
+   |
+   |__> virtual_host: array of virtual hosts that make up the route table 
+        |
+        |__> name: logical name of virtual host
+        |__> domains: envoy extracts host/auth header and checks againts configured domains 
+                      to check which virtual host to process request (like a cluster/backend service which should handle this request)
+                      domain match: exact match (www.foo.com) | suffix wildcard: *.foo.com | 
+                      prefix wildcard: foo.* (useful for tenant style domains)
+                      global : [*] : any domain
+        |__> routes: how to match a request + what to do next 
+                -match: req field,  route matching parameters 
+                       |
+                       |_>prefix 
+                -route: route req to upstream cluster
+                -metadata: provide additional info about route
+                -req_header_to_add: set of headers added to requests matching a route
+                -req_header_remove
+                -tracing ? 
+
+
+http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+What this router filter does: HTTP forwarding, follow instructions mentioned in route table
+forward / redirect + handle retry 
+    
+
+socket address in envoy reverse proxy instead of private ip for now sshould be #ecs service discovery endpoint for our service 
+
+* HTTP router filters: 
+--> for reverse proxy and service to service communication 
+
+HTTP request --> listener (bounded to socket and network address) 
+[can also act as TLS termination proxy, decrypts the traffic (can have security scans) 
+reencrypt and send to upstream services]
+
+HCM: HTTP connection manager: parses req and sends through HTTP filter chain 
+--> access control policies can be applied 
+
+Router filter: decodeHeader() : envoy matches request against --> RouteConfiguration (defines routes, virtual hosts, clusters)
